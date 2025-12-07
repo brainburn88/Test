@@ -1,25 +1,41 @@
-- name: Start WireGuard
-        run: |
-          # Создаем конфиг, используя твои конкретные секреты
-          echo "[Interface]
-          PrivateKey = ${{ secrets.WG_PRIVATE_KEY }}
-          Address = 10.100.0.5/32
-          DNS = 1.1.1.1
-          
-          [Peer]
-          # Здесь используем твой секрет 'PUBLIC' (это должен быть паблик ключ СЕРВЕРА)
-          PublicKey = ${{ secrets.PUBLIC }}
-          
-          # Настраиваем маршрутизацию (см. совет ниже про AllowedIPs)
-          AllowedIPs = 10.100.0.0/24
-          
-          # Здесь подставляем 'IP:PORT' целиком
-          Endpoint = ${{ secrets.WG_ENDPOINT }}
-          
-          PersistentKeepalive = 25" | sudo tee /etc/wireguard/wg0.conf
+name: WireGuard VPN
 
-          # Поднимаем интерфейс
-          sudo wg-quick up wg0
-          
-          # Выводим статус (ключи будут скрыты GitHub'ом)
+on: workflow_dispatch
+
+jobs:
+  vpn-connect:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install WireGuard
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y wireguard wireguard-tools openresolv
+
+      - name: Configure WireGuard
+        run: |
+          # Генерируем конфиг
+          echo "[Interface]" > wg0.conf
+          # --- ВАЖНО: Тут вписываем IP клиента прямо текстом ---
+          echo "Address = 10.10.0.2/32" >> wg0.conf
+          echo "PrivateKey = ${{ secrets.WG_PRIVATE_KEY }}" >> wg0.conf
+          echo "DNS = 1.1.1.1" >> wg0.conf
+
+          echo "[Peer]" >> wg0.conf
+          echo "PublicKey = ${{ secrets.WG_SERVER_PUBLIC_KEY }}" >> wg0.conf
+          echo "Endpoint = ${{ secrets.WG_ENDPOINT }}" >> wg0.conf
+          echo "AllowedIPs = 0.0.0.0/0" >> wg0.conf
+          echo "PersistentKeepalive = 25" >> wg0.conf
+
+      - name: Start WireGuard
+        run: |
+          sudo wg-quick up ./wg0.conf
+          sleep 5
+
+      - name: Check Connection
+        run: |
           sudo wg show
+          echo "Public IP via VPN:"
+          curl -s ifconfig.me
