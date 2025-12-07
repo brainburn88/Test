@@ -25,7 +25,7 @@ jobs:
           private_key: ${{ secrets.WG_PRIVATE_KEY }}
           
           # Настройки пира (Вашего VPN-сервера)
-          endpoint: ${{ secrets.WG_ENDPOINT }}
+          endpoint_public_key: ${{ secrets.WG_ENDPOINT }}
           public_key: ${{ secrets.WG_PUBLIC_KEY }}
           allowed_ips: ${{ secrets.WG_ALLOWED_IPS }}
 
