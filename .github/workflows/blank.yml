@@ -1,46 +1,25 @@
-name: WireGuard VPN Setup and Hold
-
-on:
-  push:
-    branches:
-      - main
-  workflow_dispatch: # Позволяет запустить вручную через вкладку "Actions"
-
-jobs:
-  vpn_hold:
-    runs-on: ubuntu-latest
-    timeout-minutes: 360 # Устанавливаем максимальный таймаут (6 часов)
-    
-    steps:
-      - name: 📝 Checkout Code
-        uses: actions/checkout@v4
-
-      # ➡️ Шаг 1: Настройка WireGuard
-      - name: 🛡️ Set up WireGuard VPN Client
-        uses: egor-tensin/setup-wireguard@v1
-        with:
-          # Внутренний IP ранера
-          ips: '10.0.0.2/32' 
-          # Приватный ключ ранера (из Secrets)
-          private_key: ${{ secrets.WG_PRIVATE_KEY }}
-          
-          # Настройки пира (Вашего VPN-сервера)
-          endpoint_public_key: ${{ secrets.WG_ENDPOINT }}
-          public_key: ${{ secrets.WG_PUBLIC_KEY }}
-          allowed_ips: ${{ secrets.WG_ALLOWED_IPS }}
-
-      - name: 🔎 Verify VPN Setup
+- name: Start WireGuard
         run: |
-          echo "WireGuard Interface Status:"
-          ip a show wg0
-          echo "Network Routes:"
-          ip r | grep 'wg0'
+          # Создаем конфиг, используя твои конкретные секреты
+          echo "[Interface]
+          PrivateKey = ${{ secrets.WG_PRIVATE_KEY }}
+          Address = 10.100.0.5/32
+          DNS = 1.1.1.1
           
-      # ⏳ Шаг 3: ТРЮК "ЗАМОРОЗКИ" - Не дает Workflow завершиться
-      - name: 🔴 KEEP
-        run: |
-          echo "🔥 Runner is now 'active' for up to 6 hours."
-          echo "Connecting to this runner from outside is highly unlikely due to GitHub's network setup."
-          # 6 часов = 21600 секунд. Команда 'sleep' будет выполняться все это время.
-          sleep 21600 
-          echo "Workflow finished after sleep."
+          [Peer]
+          # Здесь используем твой секрет 'PUBLIC' (это должен быть паблик ключ СЕРВЕРА)
+          PublicKey = ${{ secrets.PUBLIC }}
+          
+          # Настраиваем маршрутизацию (см. совет ниже про AllowedIPs)
+          AllowedIPs = 10.100.0.0/24
+          
+          # Здесь подставляем 'IP:PORT' целиком
+          Endpoint = ${{ secrets.WG_ENDPOINT }}
+          
+          PersistentKeepalive = 25" | sudo tee /etc/wireguard/wg0.conf
+
+          # Поднимаем интерфейс
+          sudo wg-quick up wg0
+          
+          # Выводим статус (ключи будут скрыты GitHub'ом)
+          sudo wg show
